@@ -1,0 +1,8 @@
+[package]
+name = "OpenArchive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tar = "0.4.43"
+text_io = "0.1.12"
