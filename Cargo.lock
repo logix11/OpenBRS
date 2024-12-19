@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "OpenArchive"
+name = "OpenBRS"
 version = "0.1.0"
 dependencies = [
  "chrono",
