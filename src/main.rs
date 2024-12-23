@@ -59,7 +59,7 @@ fn main() {
 	// Create the archive file then building it as an archive.
 	let archive = File::create(name).unwrap();
 	let mut _archive: Builder<File> = Builder::new(archive);
-/*
+
 	if path::Path::new(&source).is_file() {
 		// If the path is a file, append it with the name "archive" and path "path"
 		_archive.append_file(
@@ -84,5 +84,5 @@ fn main() {
 
 	} else {
 		println!("Invalid path"); 
-	}*/
+	}
 }
