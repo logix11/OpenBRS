@@ -2,8 +2,8 @@
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::io::prelude::*;
-use std::panic;
-use xz::read::XzEncoder;
+use std::{panic, string};
+use xz::write::XzEncoder;
 //use text_io;
 //use chrono;
 use tar::Builder;
@@ -16,35 +16,33 @@ fn main() {
     // CREATE A NEW ARCHIVE
     // Set the path
     let archive_path = "test/backup.tar.xz";
+
     // Create the file before turning it to an archive
-    let archive_file = File::create(archive_path);
-    // To replace the unwrap... For now, I just want it to panic
-    let archive_file = match archive_file {
-        Ok(file) => file,
-        Err(error) => panic!("Problem opening the file :: {error}"),
-    };
-    // Build the archive
-    let mut archive = Builder::new(archive_file);
-    //
+    let archive_file = File::create(archive_path).unwrap();
+
+    // create an XzEncoder that wraps the file (this implements Write)
+    // This means we can compress on the fly
+    let encoder = XzEncoder::new(archive_file, 9); // 0..9 compression level
+
+    // Build the archive to stream INTO the encoder to compress it directly
+    let mut archive = Builder::new(encoder);
+
     // add a file to the archive
-    archive.append_path(path)
+    let path = "test/TOAD.png";
+    archive.append_path(path).unwrap();
 
+    // finish the tar stream
+    archive.finish().unwrap();
 
-    // Read the file before encoding it
-    let file_to_encode = fs::File::open(archive_path).unwrap();
-    // Buffer it to gain te Read trait
-    let buffer = BufReader::new(file_to_encode);
-    // Encode it
-    let mut encoder = XzEncoder::new(buffer, 9);
-    // prepare the file to write to
-    let mut compressed_file = File::create("{archive_file}.zx").unwrap();
-    // prepare the buffer to read the compressed data
-    let mut buffer = Vec::new();
-    // Push the comressed data to the buffer
-    encoder.read_to_end(&mut buffer).unwrap(); // panic if it fails
-    // Turn the buffer to a &[u8]
-    let buffer: &[u8] = &buffer;
-    compressed_file.write_all(buffer).unwrap(); // panic if it fails
+    // Unwrap this archive, returning the underlying object which is the compressed data.
+    let encoder = archive.into_inner().unwrap();
+
+    // finish compression and get the inner File back
+    let file = encoder.finish().unwrap();
+
+    // ensure data is flushed to disk
+    file.sync_all().unwrap();
+
     /*
     // Getting source. First, initialize the `source` to keep it in scope.
     let mut source: String = String::new();
