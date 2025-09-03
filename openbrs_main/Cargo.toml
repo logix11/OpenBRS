@@ -1,0 +1,8 @@
+[package]
+name = "openbrs_main"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+openbrs_archv_cmprss = { path = "../openbrs_archv_cmprss/" }
+openbrs_crypto = { path = "../openbrs_crypto/" }

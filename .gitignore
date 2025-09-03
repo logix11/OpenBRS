@@ -2,3 +2,5 @@
 t
 test
 archive
+archive_lib.rs
+archive_main.rs

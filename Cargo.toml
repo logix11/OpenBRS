@@ -1,11 +1,8 @@
-[package]
-name = "OpenBRS"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "3"
+members = ["openbrs_archv_cmprss", "openbrs_crypto", "openbrs_main"]
 
-[dependencies]
-#chrono = "0.4.39"
-#proc-mounts = "0.3.0"
-#text_io = "0.1.12"
-tar = "0.4.44" # To archive
-xz = "0.1.0"   # to compress
+#[package]
+#name = "OpenBRS"
+#version = "0.1.0"
+#edition = "2024"

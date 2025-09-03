@@ -1,0 +1,12 @@
+[package]
+name = "openbrs_crypto"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aes-gcm = "0.10.3"                                     # for cryptography
+yescrypt = "0.0.1-alpha"                               # KDF
+rand = "0.9.1"                                         # To generate salts
+serde = { version = "1.0.219", features = ["derive"] } # For TOML metadata file
+toml = "0.9.5"                                         # Also for TOML
+base64 = "0.22.1"                                      # To format the derived data in a proper format
