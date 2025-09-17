@@ -13,15 +13,21 @@
        * May reference a parent commit (for differential/incremental backups).
 */
 
-/// A blob is just binary data with a hash
-struct Blob {
-    id: String,   // SHA3-256 hash of content
-    path: String, // Path to the blob
+/// A blob is the path to the data with its hash
+struct Blob<'path> {
+    id: String,        // SHA3-256 hash of content
+    path: &'path Path, // Path to the blob
 }
 
-impl Blob {
-    fn new(id: String, path: String) -> Self {
+impl<'path> Blob<'path> {
+    fn new(id: String, path: &'path Path) -> Self {
         Blob { id, path }
+    }
+    fn get_id(&self) -> &String {
+        &self.id
+    }
+    fn get_path(&self) -> &Path {
+        &self.path
     }
 }
 
@@ -35,6 +41,19 @@ enum TreeEntry {
     File { name: String, blob_id: String },
     Dir { name: String, tree_id: String },
 }
+
+impl Tree {
+    fn new(id: String, entries: Vec<TreeEntry>) -> Self {
+        Tree { id, entries }
+    }
+    fn get_id(&self) -> &String {
+        &self.id
+    }
+    fn get_entries(&self) -> &Vec<TreeEntry> {
+        &self.entries
+    }
+}
+
 /// A commit ties everything together
 struct Commit {
     id: String,             // Hash of commit data
@@ -59,17 +78,17 @@ use std::path::Path;
 
 pub fn backup(
     backup_type: u8,
+    is_dir: u8,
     target_path: &Path,
-    main_dir: &Path,
     archive_path: &Path,
     encr_archive_path: &Path,
     passwd: &[u8],
 ) {
     // Select the appropriate function
     if backup_type == 0b1 {
-        backup_full(target_path, archive_path, encr_archive_path, passwd);
+        backup_full(target_path, is_dir, archive_path, encr_archive_path, passwd);
     } else if backup_type == 0b10 {
-        backup_diff(target_path, archive_path, encr_archive_path, passwd);
+        backup_diff(target_path, is_dir, archive_path, encr_archive_path, passwd);
     } else if backup_type == 0b11 {
         backup_incr();
     } else {
@@ -78,7 +97,13 @@ pub fn backup(
 }
 
 // Function to run a full backup.
-fn backup_full(target_path: &Path, archive_path: &Path, encr_archive_path: &Path, passwd: &[u8]) {
+fn backup_full(
+    target_path: &Path,
+    is_dir: u8,
+    archive_path: &Path,
+    encr_archive_path: &Path,
+    passwd: &[u8],
+) {
     // Archive and compress
     archive_compress(&target_path, &archive_path);
 
@@ -88,7 +113,13 @@ fn backup_full(target_path: &Path, archive_path: &Path, encr_archive_path: &Path
 
 // Differential backup
 // Needs the target, and the metadata file (if any)
-fn backup_diff(target_path: &Path, archive_path: &Path, encr_archive_path: &Path, passwd: &[u8]) {
+fn backup_diff(
+    target_path: &Path,
+    is_dir: u8,
+    archive_path: &Path,
+    encr_archive_path: &Path,
+    passwd: &[u8],
+) {
     // Archive and compress
     archive_compress(&target_path, &archive_path);
 
@@ -112,10 +143,7 @@ fn backup_diff(target_path: &Path, archive_path: &Path, encr_archive_path: &Path
     let digest_base64 = general_purpose::STANDARD.encode(digest_bytes);
 
     // Create the blob
-    let blob = Blob::new(
-        digest_base64,
-        String::from("./test/.openbrs/objects/backup1"),
-    );
+    let blob = Blob::new(digest_base64, encr_archive_path);
 }
 
 fn backup_incr() {}

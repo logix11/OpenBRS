@@ -14,10 +14,13 @@ fn main() {
     }
 
     // Is it a file, or a directory?
-    let main_dir: PathBuf = if metadata(target_path).unwrap().is_dir() {
-        target_path.to_path_buf().join(".openbrs")
+    let (main_dir, is_dir) = if metadata(target_path).unwrap().is_dir() {
+        (target_path.to_path_buf().join(".openbrs"), 0b1)
     } else {
-        target_path.parent().unwrap().to_path_buf().join(".openbrs")
+        (
+            target_path.parent().unwrap().to_path_buf().join(".openbrs"),
+            0b0,
+        )
     };
 
     // Create the main directory
@@ -39,8 +42,8 @@ fn main() {
     let backup_type = 0b1;
     backup(
         backup_type,
+        is_dir,
         &target_path,
-        &main_dir,
         &archive_path,
         &encr_archive_path,
         passwd,
