@@ -1,9 +1,11 @@
 [package]
-name = "openbrs_main"
+name = "openbrs_versioning"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 openbrs_archv_cmprss = { path = "../openbrs_archv_cmprss/" }
 openbrs_crypto = { path = "../openbrs_crypto/" }
-openbrs_versioning = { path = "../openbrs_versioning" }
+sha3 = "0.10.8"
+hex = "0.4.3"
+base64 = "0.22.1"
