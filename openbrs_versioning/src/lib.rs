@@ -20,17 +20,14 @@ struct Blob<'path> {
 }
 
 impl<'path> Blob<'path> {
-    fn new(path: &'path Path) -> Self {
-        Blob { id: None, path }
-    }
-    fn get_id(&self) -> &Option<String> {
-        &self.id
-    }
-    fn get_path(&self) -> &Path {
-        &self.path
+    fn new(path: &'path Path, file_content: &Vec<u8>) -> Self {
+        Self {
+            id: Blob::calc_id(file_content),
+            path,
+        }
     }
 
-    fn set_id(file_content: Vec<u8>) -> String {
+    fn calc_id(file_content: &Vec<u8>) -> Option<String> {
         // Get SHA3-256 hash of the file
         // Create the hasher
         let mut hasher = Sha3_256::new();
@@ -45,7 +42,7 @@ impl<'path> Blob<'path> {
         let digest_bytes: &[u8] = file_hash.as_ref();
 
         // Convert it to base 64, and return it
-        general_purpose::STANDARD.encode(digest_bytes)
+        Some(general_purpose::STANDARD.encode(digest_bytes))
     }
 }
 
@@ -61,23 +58,11 @@ enum TreeEntry {
 }
 
 impl Tree {
-    fn new(id: String, entries: Vec<TreeEntry>) -> Self {
-        Tree { id, entries }
-    }
-
-    fn get_id(&self) -> &String {
-        &self.id
-    }
-
-    fn get_entries(&self) -> &Vec<TreeEntry> {
-        &self.entries
-    }
-
-    fn build(path: &Path, is_dir: bool) -> Self {
+    fn build(target_path: &Path, archive_path: &Path, blob_path: &Path, passwd: &[u8]) -> Self {
         let mut entries = Vec::new();
 
         // Read the directory, if it is indeed a directory
-        if let Ok(dir_entries) = fs::read_dir(path) {
+        if let Ok(dir_entries) = fs::read_dir(target_path) {
             // Iterate through children
             for entry in dir_entries.flatten() {
                 // Get the path
@@ -87,25 +72,32 @@ impl Tree {
                 let name = entry.file_name().to_string_lossy().to_string();
 
                 // If it is a directory, iterate through it
-                if is_dir {
+                if path.is_dir() {
                     // If it is a subtree, create a Tree object
-                    let subtree = Tree::build(&path, is_dir);
+                    let subtree = Tree::build(&path, blob_path, blob_path, passwd);
 
                     // get its id, from a hash.
                     let tree_id = subtree.id.clone();
 
                     // Push it into our main entries variable
                     entries.push(TreeEntry::Dir { name, tree_id })
-                } else if !is_dir {
+                } else if path.is_file() {
                     // If it is a file, then create a blob
+                    // Archive and compress
+                    archive_compress(&target_path, &archive_path);
 
-                    let blob_id = format!("hash-of-{}", name);
+                    // Encrypt
+                    let file_content = encrypt_archive(&blob_path, &archive_path, passwd);
+
+                    let blob_id = Blob::new(blob_path, &file_content).id.unwrap();
+
                     entries.push(TreeEntry::File { name, blob_id });
                 }
             }
         }
         // Set the ID of the file/directory.
-        let id = format!("hash-of-{}", path.display());
+
+        let id = format!("hash-of-{}", target_path.display());
 
         // Return the ID and the tree itself
         Tree { id, entries }
@@ -136,7 +128,6 @@ use std::{fs, path::Path};
 
 pub fn backup(
     backup_type: u8,
-    is_dir: u8,
     target_path: &Path,
     archive_path: &Path,
     encr_archive_path: &Path,
@@ -144,9 +135,9 @@ pub fn backup(
 ) {
     // Select the appropriate function
     if backup_type == 0b1 {
-        backup_full(target_path, is_dir, archive_path, encr_archive_path, passwd);
+        backup_full(target_path, archive_path, encr_archive_path, passwd);
     } else if backup_type == 0b10 {
-        backup_diff(target_path, is_dir, archive_path, encr_archive_path, passwd);
+        backup_diff(target_path, archive_path, encr_archive_path, passwd);
     } else if backup_type == 0b11 {
         backup_incr();
     } else {
@@ -155,13 +146,7 @@ pub fn backup(
 }
 
 // Function to run a full backup.
-fn backup_full(
-    target_path: &Path,
-    is_dir: u8,
-    archive_path: &Path,
-    encr_archive_path: &Path,
-    passwd: &[u8],
-) {
+fn backup_full(target_path: &Path, archive_path: &Path, encr_archive_path: &Path, passwd: &[u8]) {
     // Archive and compress
     archive_compress(&target_path, &archive_path);
 
@@ -171,21 +156,9 @@ fn backup_full(
 
 // Differential backup
 // Needs the target, and the metadata file (if any)
-fn backup_diff(
-    target_path: &Path,
-    is_dir: u8,
-    archive_path: &Path,
-    encr_archive_path: &Path,
-    passwd: &[u8],
-) {
-    // Archive and compress
-    archive_compress(&target_path, &archive_path);
-
-    // Encrypt
-    let file_content = encrypt_archive(&encr_archive_path, &archive_path, passwd);
-
+fn backup_diff(target_path: &Path, archive_path: &Path, encr_archive_path: &Path, passwd: &[u8]) {
     // Create the blob
-    let blob = Blob::new(encr_archive_path);
+    let tree = Tree::build(target_path, archive_path, encr_archive_path, passwd);
 }
 
 fn backup_incr() {}
