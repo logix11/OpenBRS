@@ -1,6 +1,6 @@
 use openbrs_versioning::backup;
 use std::fs::metadata;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 // TODO: FINISH ADAPTING THE CODE TO THE NEW STRUCTURE OF THE BACKUP FOLDER
 
