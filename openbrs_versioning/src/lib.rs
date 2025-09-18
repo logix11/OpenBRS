@@ -13,6 +13,12 @@
        * May reference a parent commit (for differential/incremental backups).
 */
 
+use base64::{Engine as _, engine::general_purpose};
+use openbrs_archv_cmprss::{self, archive_compress};
+use openbrs_crypto::{CryptoMetadata, encrypt_archive};
+use sha3::{Digest, Sha3_256};
+use std::{fs, path::Path};
+
 /// A blob is the path to the data with its hash
 struct Blob<'path> {
     id: Option<String>, // SHA3-256 hash of content
@@ -77,16 +83,15 @@ impl Tree {
                     let subtree = Tree::build(&path, blob_path, blob_path, passwd);
 
                     // get its id, from a hash.
+                    // This is recursive.
                     let tree_id = subtree.id.clone();
 
                     // Push it into our main entries variable
                     entries.push(TreeEntry::Dir { name, tree_id })
                 } else if path.is_file() {
                     // If it is a file, then create a blob
-                    // Archive and compress
+                    // Archive, compress, then encrypt it, and return the file content
                     archive_compress(&target_path, &archive_path);
-
-                    // Encrypt
                     let file_content = encrypt_archive(&blob_path, &archive_path, passwd);
 
                     let blob_id = Blob::new(blob_path, &file_content).id.unwrap();
@@ -95,12 +100,31 @@ impl Tree {
                 }
             }
         }
-        // Set the ID of the file/directory.
-
-        let id = format!("hash-of-{}", target_path.display());
+        // Set the ID of the file/main target directory.
+        let id = Self::calc_dir_id(&entries);
 
         // Return the ID and the tree itself
         Tree { id, entries }
+    }
+
+    fn calc_dir_id(entries: &Vec<TreeEntry>) -> String {
+        // Create the hasher
+        let mut hasher = Sha3_256::new();
+
+        // For each entry, append its name and ID to the string before hashing it.
+        for entry in entries {
+            match entry {
+                TreeEntry::File { name, blob_id } => {
+                    hasher.update(format!("file:{}:{}", name, blob_id))
+                }
+                TreeEntry::Dir { name, tree_id } => {
+                    hasher.update(format!("dir:{}:{}", name, tree_id))
+                }
+            }
+        }
+
+        // Encode it in base64
+        general_purpose::STANDARD.encode(hasher.finalize())
     }
 }
 
@@ -119,12 +143,6 @@ enum BackupType {
     Differential,
     Incremental,
 }
-
-use base64::{Engine as _, engine::general_purpose};
-use openbrs_archv_cmprss::{self, archive_compress};
-use openbrs_crypto::{CryptoMetadata, encrypt_archive};
-use sha3::{Digest, Sha3_256};
-use std::{fs, path::Path};
 
 pub fn backup(
     backup_type: u8,
@@ -147,11 +165,7 @@ pub fn backup(
 
 // Function to run a full backup.
 fn backup_full(target_path: &Path, archive_path: &Path, encr_archive_path: &Path, passwd: &[u8]) {
-    // Archive and compress
-    archive_compress(&target_path, &archive_path);
-
-    // Encrypt
-    encrypt_archive(&encr_archive_path, &archive_path, passwd);
+    let tree = Tree::build(target_path, archive_path, encr_archive_path, passwd);
 }
 
 // Differential backup
