@@ -2,11 +2,15 @@ use std::{fs::File, path::Path};
 use tar::Builder;
 use xz::write::XzEncoder;
 
-pub fn archive_compress(target_path: &Path, archive_path: &Path) {
+pub fn archive_compress(target_path: &Path, main_dir: &Path) {
     // ARCHIVING AND COMRPESSING
 
     // Create the file before turning it to an archive
-    let archive_file = File::create(archive_path).unwrap();
+    let archive_file = File::create(main_dir.join(format!(
+        "objects/{}",
+        target_path.file_name().unwrap().to_str().unwrap()
+    )))
+    .unwrap();
 
     // create an XzEncoder that wraps the file (this implements Write)
     // Thus, we can compress on the fly

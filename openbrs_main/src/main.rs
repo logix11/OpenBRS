@@ -1,8 +1,52 @@
-use openbrs_versioning::backup;
+use openbrs_versioning::backup_full;
 use std::fs::metadata;
 use std::path::Path;
 
 // TODO: FINISH ADAPTING THE CODE TO THE NEW STRUCTURE OF THE BACKUP FOLDER
+
+enum FilePath {
+    TargetPath,
+    MainDir,
+    ObjectsPath,
+    BlobsPath,
+    TreesPath,
+    CommitPath,
+    ArchivePath,
+    EncrArchPath,
+}
+
+impl FilePath {
+    fn as_path(&self, target_path: &Path) -> PathBuf {
+        // Create the main_dir for later
+        let main_dir = if metadata(target_path).unwrap().is_dir() {
+            target_path.to_path_buf().join(".openbrs").unwrap()
+        } else {
+            target_path
+                .parent()
+                .unwrap()
+                .to_path_buf()
+                .join(".openbrs")
+                .unwrap()
+        };
+
+        // Create the archive name for later
+        let archive_name = format!(
+            "{}.tar.xz",
+            target_path.file_name().unwrap().to_str().unwrap()
+        );
+
+        match self {
+            FilePath::TargetPath => target_path,
+            FilePath::MainDir => main_dir,
+            FilePath::ObjectsPath => main_dir.join("objects").unwrap(),
+            FilePath::BlobsPath => main_dir.join("objects/blobs").unwrap(),
+            FilePath::TreesPath => main_dir.join("objects/trees").unwrap(),
+            FilePath::CommitPath => main_dir.join("objects/commits").unwrap(),
+            FilePath::ArchivePath => main_dir.join(format!("objects/blobs/{archive_name};")),
+            FilePath::EncrArchPath => main_dir.join(format!("objects/blobs/{archive_name}.enc")),
+        }
+    }
+}
 
 fn main() {
     // Get path
@@ -12,36 +56,7 @@ fn main() {
     if target_path.is_absolute() {
         panic!("The path is absolute; it must not be absolute, it must be relative")
     }
+    let paths = FilePath::new(target_path);
 
-    // Is it a file, or a directory?
-    let main_dir = if metadata(target_path).unwrap().is_dir() {
-        (target_path.to_path_buf().join(".openbrs"))
-    } else {
-        target_path.parent().unwrap().to_path_buf().join(".openbrs")
-    };
-
-    // Create the main directory
-    std::fs::create_dir(&main_dir).unwrap();
-
-    // Create the objects directory, that will hold the blobs
-    let objects_path = main_dir.join("objects");
-    std::fs::create_dir(&objects_path).unwrap();
-
-    // Name the archive after the file's name, and add .xz.tar
-    let file_name = target_path.file_name().unwrap().to_str().unwrap();
-    let archive_name = format!("{}.tar.xz", file_name);
-    let archive_path = objects_path.join(file_name);
-
-    // Name the encrypted archive after the archive's name, and add .enc
-    let encr_archive_name = format!("{}.enc", archive_name);
-    let encr_archive_path = archive_path.join(encr_archive_name);
-    let passwd = "test passwd".as_bytes();
-    let backup_type = 0b1;
-    backup(
-        backup_type,
-        &target_path,
-        &archive_path,
-        &encr_archive_path,
-        passwd,
-    );
+    backup_full(&target_path, &archive_path, &encr_archive_path, passwd);
 }

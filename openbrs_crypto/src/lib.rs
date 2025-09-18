@@ -87,7 +87,7 @@ fn derive_b64(
     key
 }
 
-pub fn encrypt_archive(encr_archive_path: &Path, archive_path: &Path, password: &[u8]) -> Vec<u8> {
+pub fn encrypt_archive(archive_path: &Path, password: &[u8]) -> Vec<u8> {
     // Get the DPK, and the metadata to write it off
     let (dpk, mut metadata) = keyder(password);
 
@@ -118,7 +118,14 @@ pub fn encrypt_archive(encr_archive_path: &Path, archive_path: &Path, password: 
     let ciphertext = cipher.encrypt(&nonce, plaintext.as_ref()).unwrap();
 
     // write the cipher
-    fs::write(&encr_archive_path, &ciphertext).unwrap();
+    fs::write(
+        &archive_path.join(format!(
+            "{}.enc",
+            archive_path.file_name().unwrap().to_str().unwrap()
+        )),
+        &ciphertext,
+    )
+    .unwrap();
 
     // Return file content
     plaintext

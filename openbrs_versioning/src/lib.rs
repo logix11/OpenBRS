@@ -15,7 +15,7 @@
 
 use base64::{Engine as _, engine::general_purpose};
 use openbrs_archv_cmprss::{self, archive_compress};
-use openbrs_crypto::{CryptoMetadata, encrypt_archive};
+use openbrs_crypto::encrypt_archive;
 use sha3::{Digest, Sha3_256};
 use std::{fs, path::Path};
 
@@ -92,7 +92,7 @@ impl Tree {
                     // If it is a file, then create a blob
                     // Archive, compress, then encrypt it, and return the file content
                     archive_compress(&target_path, &archive_path);
-                    let file_content = encrypt_archive(&blob_path, &archive_path, passwd);
+                    let file_content = encrypt_archive(&blob_path, passwd);
 
                     let blob_id = Blob::new(blob_path, &file_content).id.unwrap();
 
@@ -123,54 +123,73 @@ impl Tree {
             }
         }
 
+        // The ID is now a hash of a serialization of FileType:Name:Id; where Name is the file/dir name, and ID
+        // is the hash of the content
         // Encode it in base64
         general_purpose::STANDARD.encode(hasher.finalize())
     }
 }
 
 /// A commit ties everything together
-struct Commit {
-    id: String,             // Hash of commit data
-    tree_id: String,        // Root tree
-    parent: Option<String>, // Previous commit (None for full backup)
-    backup_type: BackupType,
-    timestamp: u64,
-    metadata: CryptoMetadata, // salts, nonces, digests
+struct Commit<'message> {
+    id: String,             // Unique identifier
+    tree_id: String,        // Root tree id, which is the hash of its content
+    parent: Option<String>, // Previous commit (None for the initial backup)
+    message: &'message str, // Commit message
 }
 
-enum BackupType {
-    Full,
-    Differential,
-    Incremental,
+impl<'message> Commit<'message> {
+    fn new(tree_id: String, parent: Option<String>, message: &'message str) -> Self {
+        // Create a hasher to create the ID
+        let mut hasher = Sha3_256::new();
+
+        // Append the tree_id first
+        hasher.update(tree_id.as_bytes());
+
+        // Append the parent's id, of any
+        if let Some(ref p) = parent {
+            hasher.update(p.as_bytes());
+        }
+
+        // Append the commit's message
+        hasher.update(message.as_bytes());
+
+        // Hash the serial, and encode it in Base64
+        let id = general_purpose::STANDARD.encode(hasher.finalize());
+
+        // Return the commit
+        Self {
+            id,
+            tree_id,
+            parent,
+            message,
+        }
+    }
 }
 
-pub fn backup(
-    backup_type: u8,
+// Function to run a full backup.
+pub fn backup_full(
     target_path: &Path,
     archive_path: &Path,
     encr_archive_path: &Path,
     passwd: &[u8],
 ) {
-    // Select the appropriate function
-    if backup_type == 0b1 {
-        backup_full(target_path, archive_path, encr_archive_path, passwd);
-    } else if backup_type == 0b10 {
-        backup_diff(target_path, archive_path, encr_archive_path, passwd);
-    } else if backup_type == 0b11 {
-        backup_incr();
-    } else {
-        panic!("Error: no such backup type");
-    }
-}
-
-// Function to run a full backup.
-fn backup_full(target_path: &Path, archive_path: &Path, encr_archive_path: &Path, passwd: &[u8]) {
+    // Make the backup, this will create the blob, and prepare the tree
     let tree = Tree::build(target_path, archive_path, encr_archive_path, passwd);
+
+    // Make the commit which will point to the blob and tree.
+    // If the work is not committed, it'll be some trash that may need to be cleaned later
+    let commit = Commit::new(tree.id, None, "First commit");
 }
 
 // Differential backup
 // Needs the target, and the metadata file (if any)
-fn backup_diff(target_path: &Path, archive_path: &Path, encr_archive_path: &Path, passwd: &[u8]) {
+pub fn backup_diff(
+    target_path: &Path,
+    archive_path: &Path,
+    encr_archive_path: &Path,
+    passwd: &[u8],
+) {
     // Create the blob
     let tree = Tree::build(target_path, archive_path, encr_archive_path, passwd);
 }
