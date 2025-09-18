@@ -17,7 +17,47 @@ use base64::{Engine as _, engine::general_purpose};
 use openbrs_archv_cmprss::{self, archive_compress};
 use openbrs_crypto::encrypt_archive;
 use sha3::{Digest, Sha3_256};
-use std::{fs, path::Path};
+use std::{
+    fs::{self, metadata},
+    path::{Path, PathBuf},
+};
+
+pub struct FilePath {
+    target: PathBuf,
+    main: PathBuf,
+    objects: PathBuf,
+    blobs: PathBuf,
+    trees: PathBuf,
+    commits: PathBuf,
+    archive: PathBuf,
+    encarch: PathBuf,
+}
+
+impl FilePath {
+    pub fn new(target_path: PathBuf) -> Self {
+        let archive_name = format!(
+            "{}.tar.xz",
+            target_path.file_name().unwrap().to_str().unwrap()
+        );
+
+        let main = if metadata(&target_path).unwrap().is_dir() {
+            target_path.to_path_buf().join(".openbrs")
+        } else {
+            target_path.parent().unwrap().to_path_buf().join(".openbrs")
+        };
+
+        Self {
+            target: target_path,
+            main: main.clone(),
+            objects: main.join("objects"),
+            blobs: main.join("objects/blobs"),
+            trees: main.join("objects/trees"),
+            commits: main.join("objects/commits"),
+            archive: main.join(format!("objects/blobs/{archive_name};")),
+            encarch: main.join(format!("objects/blobs/{archive_name}.enc")),
+        }
+    }
+}
 
 /// A blob is the path to the data with its hash
 struct Blob<'path> {
@@ -64,11 +104,11 @@ enum TreeEntry {
 }
 
 impl Tree {
-    fn build(target_path: &Path, archive_path: &Path, blob_path: &Path, passwd: &[u8]) -> Self {
+    fn build(target: &PathBuf, paths: &FilePath, passwd: &[u8]) -> Self {
         let mut entries = Vec::new();
 
         // Read the directory, if it is indeed a directory
-        if let Ok(dir_entries) = fs::read_dir(target_path) {
+        if let Ok(dir_entries) = fs::read_dir(target) {
             // Iterate through children
             for entry in dir_entries.flatten() {
                 // Get the path
@@ -80,10 +120,9 @@ impl Tree {
                 // If it is a directory, iterate through it
                 if path.is_dir() {
                     // If it is a subtree, create a Tree object
-                    let subtree = Tree::build(&path, blob_path, blob_path, passwd);
+                    let subtree = Tree::build(&path, paths, passwd);
 
-                    // get its id, from a hash.
-                    // This is recursive.
+                    // get its id, from a hash. This is recursive.
                     let tree_id = subtree.id.clone();
 
                     // Push it into our main entries variable
@@ -91,10 +130,10 @@ impl Tree {
                 } else if path.is_file() {
                     // If it is a file, then create a blob
                     // Archive, compress, then encrypt it, and return the file content
-                    archive_compress(&target_path, &archive_path);
-                    let file_content = encrypt_archive(&blob_path, passwd);
+                    archive_compress(&paths.target, &paths.archive);
+                    let file_content = encrypt_archive(&paths.archive, passwd);
 
-                    let blob_id = Blob::new(blob_path, &file_content).id.unwrap();
+                    let blob_id = Blob::new(&paths.archive, &file_content).id.unwrap();
 
                     entries.push(TreeEntry::File { name, blob_id });
                 }
@@ -168,14 +207,9 @@ impl<'message> Commit<'message> {
 }
 
 // Function to run a full backup.
-pub fn backup_full(
-    target_path: &Path,
-    archive_path: &Path,
-    encr_archive_path: &Path,
-    passwd: &[u8],
-) {
+pub fn backup_full(paths: &FilePath, passwd: &[u8]) {
     // Make the backup, this will create the blob, and prepare the tree
-    let tree = Tree::build(target_path, archive_path, encr_archive_path, passwd);
+    let tree = Tree::build(&paths.target, &paths, passwd);
 
     // Make the commit which will point to the blob and tree.
     // If the work is not committed, it'll be some trash that may need to be cleaned later
@@ -184,14 +218,9 @@ pub fn backup_full(
 
 // Differential backup
 // Needs the target, and the metadata file (if any)
-pub fn backup_diff(
-    target_path: &Path,
-    archive_path: &Path,
-    encr_archive_path: &Path,
-    passwd: &[u8],
-) {
+pub fn backup_diff(paths: &FilePath, passwd: &[u8]) {
     // Create the blob
-    let tree = Tree::build(target_path, archive_path, encr_archive_path, passwd);
+    let tree = Tree::build(&paths.target, &paths, passwd);
 }
 
 fn backup_incr() {}
