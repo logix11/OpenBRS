@@ -9,7 +9,12 @@ fn main() {
     if target_path.is_absolute() {
         panic!("The path is absolute; it must not be absolute, it must be relative")
     }
+
+    // Make and instante of paths
     let paths = FilePath::new(target_path.to_path_buf());
+
+    //Create paths
+    FilePath::create_dirs(&paths);
 
     let passwd = "test_passwd".as_bytes();
 

@@ -119,7 +119,7 @@ pub fn encrypt_archive(archive_path: &Path, password: &[u8]) -> Vec<u8> {
 
     // write the cipher
     fs::write(
-        &archive_path.join(format!(
+        &archive_path.parent().unwrap().join(format!(
             "{}.enc",
             archive_path.file_name().unwrap().to_str().unwrap()
         )),
