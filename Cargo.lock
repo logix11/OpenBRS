@@ -401,6 +401,8 @@ dependencies = [
  "openbrs_archv_cmprss",
  "openbrs_crypto",
  "openbrs_versioning",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

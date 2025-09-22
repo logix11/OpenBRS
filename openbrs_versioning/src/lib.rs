@@ -16,23 +16,23 @@
 use openbrs_archv_cmprss::{self, archive_compress};
 use openbrs_crypto::encrypt_archive;
 use serde::{Deserialize, Serialize};
-use serde_json;
 use sha3::{Digest, Sha3_256};
 use std::{
-    fs::{self, metadata},
+    fs::{self, File, metadata},
+    io::Read,
     path::PathBuf,
 };
 
 #[derive(Serialize, Deserialize)]
 pub struct FilePath {
-    target: PathBuf,
-    main: PathBuf,
-    objects: PathBuf,
-    blobs: PathBuf,
-    trees: PathBuf,
-    commits: PathBuf,
-    archive: PathBuf,
-    encarch: Option<PathBuf>,
+    pub target: PathBuf,
+    pub main: PathBuf,
+    pub objects: PathBuf,
+    pub blobs: PathBuf,
+    pub trees: PathBuf,
+    pub commits: PathBuf,
+    pub archive: PathBuf,
+    pub encarch: Option<PathBuf>,
 }
 
 impl FilePath {
@@ -104,19 +104,19 @@ impl Blob {
 
 /// A tree maps names to blobs/trees
 #[derive(Serialize, Deserialize)]
-struct Tree {
-    id: String,              // Hash of serialized tree
-    entries: Vec<TreeEntry>, // files/subdirs in this folder
+pub struct Tree {
+    pub id: String,              // Hash of serialized tree
+    pub entries: Vec<TreeEntry>, // files/subdirs in this folder
 }
 
 #[derive(Serialize, Deserialize)]
-enum TreeEntry {
+pub enum TreeEntry {
     File { name: String, blob_id: String },
     Dir { name: String, tree_id: String },
 }
 
 impl Tree {
-    fn build(paths: &FilePath, passwd: &[u8]) -> Self {
+    pub fn build(paths: &FilePath, passwd: &[u8], first_backup: bool) -> Self {
         let mut entries = Vec::new();
 
         // Read the directory, if it is indeed a directory
@@ -124,8 +124,6 @@ impl Tree {
             // Iterate through children
             for entry in dir_entries.flatten() {
                 // Get the path
-                // I create a filePath instance because the new target is the new path, and that must be the case in each
-                // iteration
                 let path = FilePath::new(entry.path());
 
                 // Get the item's name
@@ -134,7 +132,7 @@ impl Tree {
                 // If it is a directory, iterate through it
                 if path.target.is_dir() {
                     // If it is a subtree, create a Tree object
-                    let subtree = Tree::build(&paths, passwd);
+                    let subtree = Tree::build(&paths, passwd, true);
 
                     // get its id, from a hash. This is recursive.
                     let tree_id = subtree.id;
@@ -142,15 +140,30 @@ impl Tree {
                     // Push it into our main entries variable
                     entries.push(TreeEntry::Dir { name, tree_id })
                 } else if path.target.is_file() {
-                    // If it is a file, then create a blob
+                    // If it is a file, then create a blob if it's the first (or a full backup) backup; otherwise, only parse
+                    // items, and get their hashes, to build the tree and compare it to the reference's tree, and decide which
+                    // files changes.
                     // Archive, compress, then encrypt it, and return the file content
-                    archive_compress(&paths.target, &paths.archive);
-                    let file_content = encrypt_archive(&paths.archive, passwd);
+                    if first_backup {
+                        archive_compress(&paths.target, &paths.archive);
+                        let file_content = encrypt_archive(&paths.archive, passwd);
 
-                    //let blob_id = Blob::new(paths.archive.clone(), &file_content).id.unwrap();
-                    let blob_id = Blob::new(&file_content).id.unwrap();
+                        //let blob_id = Blob::new(paths.archive.clone(), &file_content).id.unwrap();
+                        let blob_id = Blob::new(&file_content).id.unwrap();
 
-                    entries.push(TreeEntry::File { name, blob_id });
+                        entries.push(TreeEntry::File { name, blob_id });
+                    } else {
+                        // Read file
+                        let mut file_content = Vec::new();
+                        let mut file = File::open(path.target).unwrap();
+                        file.read_to_end(&mut file_content).unwrap();
+
+                        // Get its hash (ID)
+                        let blob_id = Blob::new(&file_content).id.unwrap();
+
+                        // push it to the tree
+                        entries.push(TreeEntry::File { name, blob_id });
+                    }
                 }
             }
         } else {
@@ -203,15 +216,15 @@ impl Tree {
 
 /// A commit ties everything together
 #[derive(Serialize, Deserialize)]
-struct Commit<'message> {
-    id: String,             // Unique identifier
-    tree_id: String,        // Root tree id, which is the hash of its content
-    parent: Option<String>, // Previous commit (None for the initial backup)
-    message: &'message str, // Commit message
+pub struct Commit<'message> {
+    pub id: String,             // Unique identifier
+    pub tree_id: String,        // Root tree id, which is the hash of its content
+    pub parent: Option<String>, // Previous commit (None for the initial backup)
+    pub message: &'message str, // Commit message
 }
 
 impl<'message> Commit<'message> {
-    fn new(tree_id: String, parent: Option<String>, message: &'message str) -> Self {
+    pub fn new(tree_id: String, parent: Option<String>, message: &'message str) -> Self {
         // Create a hasher to create the ID
         let mut hasher = Sha3_256::new();
 
@@ -237,36 +250,4 @@ impl<'message> Commit<'message> {
             message,
         }
     }
-}
-
-// Function to run a full backup.
-pub fn backup_full(paths: &FilePath, passwd: &[u8]) {
-    // Make the backup, this will create the blob, and prepare the tree
-    let tree = Tree::build(&paths, passwd);
-
-    // Write off the tree as a JSON
-    // Turn the tree to JSON String format
-    let json = serde_json::to_string_pretty(&tree).unwrap();
-
-    // Prepare the path
-    let path = paths.trees.join(format!("{}.json", tree.id));
-
-    // Create the file
-    fs::File::create(&path).unwrap();
-    // Write it off
-    fs::write(path, json).unwrap();
-
-    // Make the commit which will point to the blob and tree.
-    // If the work is not committed, it'll be some trash that may need to be cleaned later
-    let commit = Commit::new(tree.id, None, "First commit");
-
-    // Write off the commit as a JSON
-    // Turn the tree to JSON String format
-    let json = serde_json::to_string_pretty(&commit).unwrap();
-
-    // Prepare the path
-    let path = paths.commits.join(format!("{}.json", commit.id));
-
-    // Write it off
-    fs::write(path, json).unwrap();
 }
