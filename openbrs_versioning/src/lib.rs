@@ -103,7 +103,7 @@ impl Blob {
 }
 
 /// A tree maps names to blobs/trees
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tree {
     pub id: String,              // Hash of serialized tree
     pub entries: Vec<TreeEntry>, // files/subdirs in this folder
@@ -111,8 +111,15 @@ pub struct Tree {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TreeEntry {
-    File { name: String, blob_id: String },
-    Dir { name: String, tree_id: String },
+    File {
+        name: String,
+        blob_id: String,
+    },
+    Dir {
+        name: String,       // Normal directory name
+        tree_id: String,    // Tree's content's hash
+        subtree: Box<Tree>, // To store sub-trees
+    },
 }
 
 #[derive(Debug)]
@@ -127,24 +134,17 @@ pub type Store = HashMap<String, Tree>;
 
 impl Tree {
     pub fn build(paths: &FilePath, passwd: &[u8], first_backup: bool) -> Self {
-        let tree = if paths.target.is_dir() {
-            Tree::build_dir(paths, passwd)
+        if paths.target.is_dir() {
+            let tree = Tree::build_dir(paths, passwd);
+            archive_compress_dir(&paths.target, &paths.archive);
+            tree
         } else {
-            Tree::build_file(paths, passwd, first_backup)
-        };
-        tree
+            let tree = Tree::build_file(paths, passwd, first_backup);
+            tree
+        }
     }
 
     fn build_dir(paths: &FilePath, passwd: &[u8]) -> Self {
-        /*if paths
-            .target
-            .to_str()
-            .map(|s| s.contains(".openbrs"))
-            .unwrap_or(false)
-        {
-            panic!("NO");
-        } else {
-        }*/
         let mut entries = Vec::new();
 
         // Collect entries first, so the iterator (and its FD) is dropped
@@ -163,18 +163,22 @@ impl Tree {
             // If it is a directory, iterate through it
             if path.target.is_dir() {
                 // If it is a subtree, check first whether it is the .openbrs workplace
-                if path.archive.to_string_lossy().contains("/.openbrs/") {
-                    continue; // skip it
+                // If yes, skip it
+                if path.target.to_string_lossy().contains("/.openbrs") {
+                    continue;
                 }
+
                 // create a Tree instance
                 let new_paths = FilePath::new(path.target);
-                let subtree = Tree::build(&new_paths, passwd, true);
-
-                // get its id, from a hash. This is recursive.
-                let tree_id = subtree.id;
+                let subtree = Tree::build_dir(&new_paths, passwd);
+                let subtree_id = subtree.id.clone();
 
                 // Push it into our main entries variable
-                entries.push(TreeEntry::Dir { name, tree_id })
+                entries.push(TreeEntry::Dir {
+                    name,
+                    tree_id: subtree_id,
+                    subtree: Box::new(subtree),
+                });
             } else if path.target.is_file() {
                 // If it is a file, then create a blob if it's the first (or a full backup) backup; otherwise, only parse
                 // the item, and get their hashes, to build the tree and compare it to the reference's tree, and decide which
@@ -193,9 +197,6 @@ impl Tree {
                 entries.push(TreeEntry::File { name, blob_id });
             }
         }
-
-        // Archive, and compress the file
-        archive_compress_dir(&paths.target, &paths.archive);
 
         // Set the ID of the file/main target directory.
         let id = Self::calc_dir_id(&entries);
@@ -261,7 +262,7 @@ impl Tree {
                 TreeEntry::File { name, blob_id } => {
                     hasher.update(format!("file:{}:{}", name, blob_id))
                 }
-                TreeEntry::Dir { name, tree_id } => {
+                TreeEntry::Dir { name, tree_id, .. } => {
                     hasher.update(format!("dir:{}:{}", name, tree_id))
                 }
             }
@@ -320,7 +321,7 @@ impl Tree {
                     }
                 }
 
-                TreeEntry::Dir { name, tree_id } => {
+                TreeEntry::Dir { name, tree_id, .. } => {
                     if let Some(old_entry) = old_map.remove(name) {
                         match old_entry {
                             TreeEntry::Dir {
@@ -367,12 +368,12 @@ impl Tree {
         changes
     }
 
-    fn populate_store(&self, store: &mut Store) {
+    fn _populate_store(&self, store: &mut Store) {
         store.insert(self.id.clone(), self.clone());
         for entry in &self.entries {
             if let TreeEntry::Dir { tree_id, .. } = entry {
                 if let Some(subtree) = store.clone().get(tree_id) {
-                    subtree.populate_store(store);
+                    subtree._populate_store(store);
                 }
             }
         }

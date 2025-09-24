@@ -14,7 +14,7 @@ fn main() {
     let paths = FilePath::new(target_path.to_path_buf());
 
     // Create paths if they dont exist
-    let first_backup = match fs::exists(&paths.main) {
+    let _first_backup = match fs::exists(&paths.main) {
         Ok(response) => {
             if !response {
                 paths.create_dirs();
@@ -69,7 +69,7 @@ fn backup_full(paths: &FilePath, passwd: &[u8]) {
     fs::write(paths.main.join("HEAD"), commit.id).unwrap();
 }
 
-fn backup_diff(paths: &FilePath, passwd: &[u8], first_backup: bool) {
+fn _backup_diff(paths: &FilePath, passwd: &[u8], first_backup: bool) {
     match first_backup {
         true => {
             // Upon first backup, we run a full backup
@@ -114,11 +114,11 @@ fn backup_diff(paths: &FilePath, passwd: &[u8], first_backup: bool) {
             let latest_tree: Tree = serde_json::from_str(&latest_tree_json).unwrap();
 
             // Create the store
-            let mut store = Store::new();
+            let store = Store::new();
 
             // Populate the store with the new tree
             // Calculate changes compared to the latest commit
-            let changes = Tree::diff_trees(&tree, &latest_tree, &store);
+            let _changes = Tree::diff_trees(&tree, &latest_tree, &store);
         }
     };
 }
