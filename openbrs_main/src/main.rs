@@ -1,4 +1,4 @@
-use openbrs_versioning::{Commit, FilePath, Store, Tree};
+use openbrs_versioning::{Commit, FilePath, Tree};
 use serde_json;
 use std::{fs, path::Path};
 fn main() {
@@ -111,14 +111,7 @@ fn _backup_diff(paths: &FilePath, passwd: &[u8], first_backup: bool) {
                 fs::read_to_string(paths.trees.join(format!("{}.json", latest_tree_id))).unwrap();
 
             // Convert it to a Tree instance
-            let latest_tree: Tree = serde_json::from_str(&latest_tree_json).unwrap();
-
-            // Create the store
-            let store = Store::new();
-
-            // Populate the store with the new tree
-            // Calculate changes compared to the latest commit
-            let _changes = Tree::diff_trees(&tree, &latest_tree, &store);
+            let _latest_tree: Tree = serde_json::from_str(&latest_tree_json).unwrap();
         }
     };
 }

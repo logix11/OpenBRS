@@ -34,7 +34,6 @@ pub fn archive_compress_file(target_path: &PathBuf, blob_file: &PathBuf) {
 pub fn archive_compress_dir(target_path: &PathBuf, blob_file: &PathBuf) {
     // ARCHIVING AND COMRPESSING
     // Create the file before turning it to an archive
-    println!("Blob file :: {:?}", blob_file);
     let archive_file = File::create(&blob_file).unwrap();
 
     // create an XzEncoder that wraps the file (this implements Write)
