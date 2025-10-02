@@ -3,8 +3,6 @@ use tar::Builder;
 use xz::write::XzEncoder;
 
 pub fn archive_compress_file(target_path: &PathBuf, blob_file: &PathBuf) {
-    // ARCHIVING AND COMRPESSING
-
     // Create the file before turning it to an archive
     let archive_file = File::create(blob_file).unwrap();
 
@@ -32,7 +30,6 @@ pub fn archive_compress_file(target_path: &PathBuf, blob_file: &PathBuf) {
 }
 
 pub fn archive_compress_dir(target_path: &PathBuf, blob_file: &PathBuf) {
-    // ARCHIVING AND COMRPESSING
     // Create the file before turning it to an archive
     let archive_file = File::create(&blob_file).unwrap();
 

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["openbrs_archv_cmprss", "openbrs_crypto", "openbrs_main", "openbrs_versioning"]
+members = ["openbrs_archv_cmprss", "openbrs_backup", "openbrs_crypto", "openbrs_main", "openbrs_main_structs", "openbrs_versioning"]
 
 #[package]
 #name = "OpenBRS"

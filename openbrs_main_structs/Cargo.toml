@@ -1,0 +1,13 @@
+[package]
+name = "openbrs_main_structs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+openbrs_versioning = { path = "../openbrs_versioning" }
+openbrs_archv_cmprss = { path = "../openbrs_archv_cmprss/" }
+openbrs_crypto = { path = "../openbrs_crypto/" }
+sha3 = "0.10.8"
+hex = "0.4.3"
+serde = { version = "1.0.228", features = ["derive"] } # For metadata file
+serde_json = "1.0.145"
