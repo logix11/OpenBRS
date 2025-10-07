@@ -426,7 +426,6 @@ dependencies = [
  "hex",
  "openbrs_archv_cmprss",
  "openbrs_crypto",
- "openbrs_versioning",
  "serde",
  "serde_json",
  "sha3",
@@ -435,6 +434,11 @@ dependencies = [
 [[package]]
 name = "openbrs_versioning"
 version = "0.1.0"
+dependencies = [
+ "openbrs_main_structs",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "pbkdf2"

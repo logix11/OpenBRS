@@ -147,8 +147,15 @@ pub struct Tree {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum EntryKind {
+    File,
+    Dir,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntryRef {
     pub name: String,
+    pub kind: EntryKind,
     pub id: String,
 }
 
@@ -195,6 +202,7 @@ impl Tree {
                 // Push its id into our main entries variable
                 entries.push(EntryRef {
                     name: name,
+                    kind: EntryKind::Dir,
                     id: subtree.id,
                 });
             } else if path.target.is_file() {
@@ -209,6 +217,7 @@ impl Tree {
                 // push it to the tree
                 entries.push(EntryRef {
                     name: name,
+                    kind: EntryKind::File,
                     id: blob.id.unwrap(),
                 });
             }
@@ -258,7 +267,11 @@ impl Tree {
             Tree {
                 id: blob_id.clone(),
                 name: name.clone(),
-                entries: vec![EntryRef { name, id: blob_id }],
+                entries: vec![EntryRef {
+                    name,
+                    kind: EntryKind::File,
+                    id: blob_id,
+                }],
             }
         } else {
             // Read file
@@ -273,7 +286,11 @@ impl Tree {
             Tree {
                 id: blob_id.clone(),
                 name: name.clone(),
-                entries: vec![EntryRef { name, id: blob_id }],
+                entries: vec![EntryRef {
+                    name,
+                    kind: EntryKind::File,
+                    id: blob_id,
+                }],
             }
         }
     }
@@ -296,7 +313,7 @@ impl Tree {
         hex::encode(hasher.finalize())
     }
 
-    fn write_tree(&self, paths: &FilePath) {
+    pub fn write_tree(&self, paths: &FilePath) {
         // Write off the tree as a JSON
         // Turn the tree to JSON String format
         let json = serde_json::to_string_pretty(&self).unwrap();
@@ -309,4 +326,19 @@ impl Tree {
         // Write it off
         fs::write(path, json).unwrap();
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ChangeType {
+    Added,
+    Removed,
+    Modified,
+}
+
+pub struct Change {
+    pub change_type: ChangeType,
+    pub name: String,
+    pub kind: EntryKind,
+    pub old_id: Option<String>,
+    pub new_id: Option<String>,
 }
