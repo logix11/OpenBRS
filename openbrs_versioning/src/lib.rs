@@ -1,12 +1,8 @@
-use openbrs_main_structs::{Change, ChangeType, Commit, FilePath, Tree};
+use openbrs_main_structs::{Change, ChangeType, EntryKind, FilePath, Tree};
 use serde_json;
-use std::{
-    collections::HashMap,
-    fs,
-    path::{self, Path},
-};
+use std::{collections::HashMap, fs};
 
-pub fn compare_trees(old_tree: &Tree, new_tree: &Tree, paths: FilePath) {
+pub fn compare_trees(old_tree: &Tree, new_tree: &Tree, paths: &FilePath) {
     /*
     // Read Latest commit ID
     let latest_commit_id = fs::read_to_string(paths.main.join("HEAD")).unwrap();
@@ -30,29 +26,35 @@ pub fn compare_trees(old_tree: &Tree, new_tree: &Tree, paths: FilePath) {
     let mut all_changes: Vec<Change> = Vec::new();
 
     // First, compare the current level
-    let level_changes = current_level_diff(&old_tree, &new_tree);
+    let level_changes = current_level_diff(&old_tree, &new_tree).unwrap();
 
     // Iterate
     for change in level_changes {
         // If it's a modification (not an addition/removal) to a directory:
-        if change.change_type == ChangeType::Modified && change.kind == EntryKind::Dir {
-            // A directory was changed
-            if let (Some(old_tree_id), Some(new_tree_id)) = (&change.old_id, &change.new_id) {
-                // Read old tree, then prase it
-                let old_tree =
-                    fs::read_to_string(paths.trees.join(format!("{}.json", old_tree_id))).unwrap();
-                let old_tree: Tree = serde_json::from_str(&old_tree).ok().unwrap();
+        match (&change.change_type, &change.kind) {
+            (ChangeType::Modified, EntryKind::Dir) => {
+                // A directory was changed
+                if let (Some(old_tree_id), Some(new_tree_id)) = (&change.old_id, &change.new_id) {
+                    // Read old tree, then prase it
+                    let old_tree =
+                        fs::read_to_string(paths.trees.join(format!("{}.json", old_tree_id)))
+                            .unwrap();
+                    let old_tree: Tree = serde_json::from_str(&old_tree).ok().unwrap();
 
-                // Read new tree and parse it
-                let new_tree =
-                    fs::read_to_string(paths.trees.join(format!("{}.json", new_tree_id))).unwrap();
-                let new_tree: Tree = serde_json::from_str(&new_tree).ok().unwrap();
+                    // Read new tree and parse it
+                    let new_tree =
+                        fs::read_to_string(paths.trees.join(format!("{}.json", new_tree_id)))
+                            .unwrap();
+                    let new_tree: Tree = serde_json::from_str(&new_tree).ok().unwrap();
 
-                // Recurse
-                compare_trees(&old_tree, &new_tree, &paths);
+                    // Recurse
+                    compare_trees(&old_tree, &new_tree, &paths);
+                }
             }
-        } else {
-            //
+            (ChangeType::Modified, EntryKind::File) => {
+                // A file has changed
+            }
+            _ => {}
         }
         all_changes.push(change);
     }
@@ -84,19 +86,22 @@ fn current_level_diff(old_tree: &Tree, new_tree: &Tree) -> Option<Vec<Change>> {
                 None => changes.push(Change {
                     change_type: ChangeType::Added,
                     name: name.clone(),
-                    kind,
+                    kind: kind.clone(),
                     old_id: None,
                     new_id: Some(id.clone()),
                 }),
 
                 // If you can, but the ID has changed:
-                Some(old_id) if old_id != id => changes.push(Change {
-                    change_type: ChangeType::Modified,
-                    name: name.clone(),
-                    kind,
-                    old_id: Some(old_id.clone()),
-                    new_id: Some(id.clone()),
-                }),
+                Some((old_id, _)) if old_id != id => {
+                    //                    let kind = kind;
+                    changes.push(Change {
+                        change_type: ChangeType::Modified,
+                        name: name.clone(),
+                        kind: kind.clone(),
+                        old_id: Some(old_id.clone()),
+                        new_id: Some(id.clone()),
+                    })
+                }
 
                 // Otherwise, there's no change in here
                 _ => {}

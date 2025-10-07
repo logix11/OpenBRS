@@ -146,13 +146,12 @@ pub struct Tree {
     pub entries: Vec<EntryRef>, // IDs of contents.
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum EntryKind {
     File,
     Dir,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EntryRef {
     pub name: String,
     pub kind: EntryKind,
