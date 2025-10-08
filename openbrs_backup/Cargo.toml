@@ -7,6 +7,7 @@ edition = "2024"
 openbrs_main_structs = { path = "../openbrs_main_structs" }
 openbrs_archv_cmprss = { path = "../openbrs_archv_cmprss/" }
 openbrs_crypto = { path = "../openbrs_crypto/" }
+openbrs_compare = { path = "../openbrs_compare" }
 sha3 = "0.10.8"
 hex = "0.4.3"
 serde = { version = "1.0.228", features = ["derive"] } # For metadata file

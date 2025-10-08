@@ -1,3 +1,5 @@
+use openbrs_archv_cmprss::archive_compress;
+use openbrs_compare::compare_trees;
 use openbrs_main_structs::{Commit, FilePath, Tree};
 use serde_json;
 use std::fs;
@@ -9,6 +11,9 @@ pub fn backup_full(paths: &FilePath) {
     // Write off the tree as a JSON
     tree.write_tree(&paths);
 
+    // Create the archive
+    archive_compress(&paths.target, &paths.archive);
+
     // Make the commit which will point to the blob and tree.
     // If the work is not committed, it'll be some trash that may need to be cleaned later
     let commit = Commit::new(tree.id, None, String::from("First commit"));
@@ -17,10 +22,10 @@ pub fn backup_full(paths: &FilePath) {
     commit.write(paths);
 
     // Create the file for the HEAD
-    fs::File::create(paths.main.join("HEAD")).unwrap();
+    fs::File::create(&paths.head).unwrap();
 
     // Write off the commit's ID
-    fs::write(paths.main.join("HEAD"), commit.id).unwrap();
+    fs::write(&paths.head, commit.id).unwrap();
 }
 
 pub fn _backup_diff(paths: &FilePath, first_backup: bool) {
@@ -32,31 +37,33 @@ pub fn _backup_diff(paths: &FilePath, first_backup: bool) {
         false => {
             // We run a differential backup
             // Make the backup, this will prepare the tree
-            let tree = Tree::build(&paths, false);
+            let new_tree = Tree::build(&paths, false);
 
             // Write off the tree as a JSON
-            tree.write_tree(paths);
+            new_tree.write_tree(paths);
 
             // Read the latest commit's ID before reading its tree
-            let most_recent_commit = fs::read_to_string(paths.main.join("HEAD")).unwrap();
+            let latest_commit = fs::read_to_string(&paths.head).unwrap();
 
             // Read the latest commit's content, and get the tree's ID
-            let latest_commit_json =
-                fs::read_to_string(paths.commits.join(format!("{}.json", most_recent_commit)))
-                    .unwrap();
+            let latest_commit =
+                fs::read_to_string(paths.commits.join(format!("{}.json", latest_commit))).unwrap();
 
             // Convert it to Commit instance
-            let latest_commit: Commit = serde_json::from_str(&latest_commit_json).ok().unwrap();
+            let latest_commit: Commit = serde_json::from_str(&latest_commit).ok().unwrap();
 
             // Get the tree's ID
             let latest_tree_id = latest_commit.tree_id;
 
             // Read the latest tree
-            let latest_tree_json =
+            let latest_tree =
                 fs::read_to_string(paths.trees.join(format!("{}.json", latest_tree_id))).unwrap();
 
             // Convert it to a Tree instance
-            let _latest_tree: Tree = serde_json::from_str(&latest_tree_json).unwrap();
+            let old_tree: Tree = serde_json::from_str(&latest_tree).unwrap();
+
+            // Compare the two trees, and get what has changed
+            let changes = compare_trees(&old_tree, &new_tree, paths);
         }
     };
 }

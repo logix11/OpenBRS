@@ -2,30 +2,11 @@ use openbrs_main_structs::{Change, ChangeType, EntryKind, FilePath, Tree};
 use serde_json;
 use std::{collections::HashMap, fs};
 
-pub fn compare_trees(old_tree: &Tree, new_tree: &Tree, paths: &FilePath) {
-    /*
-    // Read Latest commit ID
-    let latest_commit_id = fs::read_to_string(paths.main.join("HEAD")).unwrap();
-
-    // Look for the commit, parse it, and extract the main tree's ID.
-    let latest_commit =
-        fs::read_to_string(paths.commits.join(format!("{}.json", latest_commit_id))).unwrap();
-
-    // Make it a Commit instance
-    let latest_commit: Commit = serde_json::from_str(&latest_commit).ok().unwrap();
-
-    // Get Tree ID
-    let old_tree_id = latest_commit.tree_id;
-
-    // Read tree (string)
-    let old_tree = fs::read_to_string(paths.trees.join(format!("{}.json", old_tree_id))).unwrap();
-
-    // Read tree (Tree)
-    let old_tree: Tree = serde_json::from_str(&old_tree).ok().unwrap();*/
-
+pub fn compare_trees(old_tree: &Tree, new_tree: &Tree, paths: &FilePath) -> Vec<Change> {
     let mut all_changes: Vec<Change> = Vec::new();
 
     // First, compare the current level
+    // TODO: GIVE IT THE LEVEL'S PATH SO THAT IT ADDS IT TO THE INDIVIDUAL CHANGE INSTANCE
     let level_changes = current_level_diff(&old_tree, &new_tree).unwrap();
 
     // Iterate
@@ -48,6 +29,7 @@ pub fn compare_trees(old_tree: &Tree, new_tree: &Tree, paths: &FilePath) {
                     let new_tree: Tree = serde_json::from_str(&new_tree).ok().unwrap();
 
                     // Recurse
+                    // TODO: PASS THE NEW LEVEL'S PATH
                     compare_trees(&old_tree, &new_tree, &paths);
                 }
             }
@@ -58,6 +40,7 @@ pub fn compare_trees(old_tree: &Tree, new_tree: &Tree, paths: &FilePath) {
         }
         all_changes.push(change);
     }
+    all_changes
 }
 
 fn current_level_diff(old_tree: &Tree, new_tree: &Tree) -> Option<Vec<Change>> {

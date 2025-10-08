@@ -1,0 +1,8 @@
+[package]
+name = "openbrs_stage"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+openbrs_main_structs = { path = "../openbrs_main_structs" }
+openbrs_archv_cmprss = { path = "../openbrs_archv_cmprss"}

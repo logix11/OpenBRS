@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 openbrs_archv_cmprss = { path = "../openbrs_archv_cmprss/" }
 openbrs_crypto = { path = "../openbrs_crypto/" }
-openbrs_versioning = { path = "../openbrs_versioning" }
 openbrs_main_structs = { path = "../openbrs_main_structs" }
 openbrs_backup = { path = "../openbrs_backup" }
 serde = { version = "1.0.219", features = ["derive"] } # For metadata file

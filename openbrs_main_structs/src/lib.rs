@@ -1,4 +1,4 @@
-use openbrs_archv_cmprss::{archive_compress_dir, archive_compress_file};
+//use openbrs_archv_cmprss::{archive_compress_dir, archive_compress_file};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use sha3::{Digest, Sha3_256};
@@ -12,13 +12,14 @@ use std::{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FilePath {
     pub target: PathBuf,
+    pub parent: PathBuf,
     pub main: PathBuf,
-    pub objects: PathBuf,
     pub blobs: PathBuf,
     pub trees: PathBuf,
     pub commits: PathBuf,
     pub archive: PathBuf,
     pub encarch: Option<PathBuf>,
+    pub head: PathBuf,
 }
 
 impl FilePath {
@@ -28,27 +29,33 @@ impl FilePath {
             target_path.file_name().unwrap().to_str().unwrap()
         );
 
-        let main = if metadata(&target_path).unwrap().is_dir() {
-            target_path.to_path_buf().join(".openbrs")
+        let (main, parent) = if metadata(&target_path).unwrap().is_dir() {
+            (
+                target_path.to_path_buf().join(".openbrs"),
+                target_path.clone(),
+            )
         } else {
-            target_path.parent().unwrap().to_path_buf().join(".openbrs")
+            (
+                target_path.parent().unwrap().to_path_buf().join(".openbrs"),
+                target_path.parent().unwrap().to_path_buf(),
+            )
         };
 
         Self {
             target: target_path,
+            parent: parent.clone(),
             main: main.clone(),
-            objects: main.join("objects"),
             blobs: main.join("objects/blobs"),
             trees: main.join("objects/trees"),
             commits: main.join("objects/commits"),
             archive: main.join(format!("objects/blobs/{archive_name}")),
             encarch: Some(main.join(format!("objects/blobs/{archive_name}.enc"))),
+            head: main.join("HEAD"),
         }
     }
 
     pub fn create_dirs(&self) {
         fs::create_dir(&self.main).unwrap();
-        fs::create_dir(&self.objects).unwrap();
         fs::create_dir(&self.blobs).unwrap();
         fs::create_dir(&self.trees).unwrap();
         fs::create_dir(&self.commits).unwrap();
@@ -162,7 +169,7 @@ impl Tree {
     pub fn build(paths: &FilePath, first_backup: bool) -> Self {
         if paths.target.is_dir() {
             let tree = Tree::build_dir(&paths, &paths);
-            archive_compress_dir(&paths.target, &paths.archive);
+            //archive_compress_dir(&paths.target, &paths.archive);
             tree
         } else {
             let tree = Tree::build_file(paths, first_backup);
@@ -253,7 +260,7 @@ impl Tree {
             .to_string();
 
         if first_backup {
-            archive_compress_file(&paths.target, &paths.archive);
+            // archive_compress_file(&paths.target, &paths.archive);
 
             // Read the file and create a Blob instance
             let mut file_content = Vec::new();

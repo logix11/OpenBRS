@@ -388,11 +388,21 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "openbrs_archv_cmprss",
+ "openbrs_compare",
  "openbrs_crypto",
  "openbrs_main_structs",
  "serde",
  "serde_json",
  "sha3",
+]
+
+[[package]]
+name = "openbrs_compare"
+version = "0.1.0"
+dependencies = [
+ "openbrs_main_structs",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -415,7 +425,6 @@ dependencies = [
  "openbrs_backup",
  "openbrs_crypto",
  "openbrs_main_structs",
- "openbrs_versioning",
  "serde",
 ]
 
@@ -432,12 +441,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "openbrs_versioning"
+name = "openbrs_stage"
 version = "0.1.0"
 dependencies = [
+ "openbrs_archv_cmprss",
  "openbrs_main_structs",
- "serde",
- "serde_json",
 ]
 
 [[package]]
