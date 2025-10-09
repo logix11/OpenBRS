@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File},
-    path::PathBuf,
+    path::{self, PathBuf},
 };
 use tar::Builder;
 use xz::write::XzEncoder;
@@ -25,6 +25,9 @@ pub fn archive_compress(target_path: &PathBuf, blobs: &PathBuf) {
 
     // add a file to the archive
     if target_path.is_dir() {
+        // First, register the target directory, then archive its content
+        let dir_name = target_path.file_name().unwrap();
+        archive.append_dir(dir_name, target_path).unwrap();
         append_dir_all_excluding(&mut archive, target_path, target_path);
     } else {
         archive.append_path(target_path).unwrap();
@@ -71,7 +74,8 @@ fn append_dir_all_excluding(
 
             // Get the full and relative paths
             let entry_path = entry.path();
-            let rel_path = entry_path.strip_prefix(base).unwrap();
+            let rel_path = path::Path::new(base.file_name().unwrap())
+                .join(entry_path.strip_prefix(base).unwrap());
 
             // is it a folder? Then recurse deeper; otherwise, simply archive it
             if entry_path.is_dir() {

@@ -30,5 +30,5 @@ fn main() {
     let _passwd = "test_passwd".as_bytes();
 
     //backup_full(&paths);
-    backup_diff(&paths, false);
+    backup_diff(&paths, true);
 }
