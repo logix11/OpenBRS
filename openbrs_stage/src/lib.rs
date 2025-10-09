@@ -1,10 +1,13 @@
-use std::{env, path::PathBuf};
-
 use openbrs_archv_cmprss::archive_compress;
 use openbrs_main_structs::{Change, ChangeType, FilePath};
+use std::env;
 pub fn stage(changes: Vec<Change>, paths: &FilePath) {
     // Parse changes
     for change in changes {
+        println!("{}", change.name);
+        if change.name == ".openbrs" {
+            continue;
+        }
         // Match changes, to stage what was added and what was modified only.
         match change.change_type {
             ChangeType::Added | ChangeType::Modified => {

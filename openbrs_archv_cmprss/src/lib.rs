@@ -1,4 +1,7 @@
-use std::{fs::File, path::PathBuf};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
 use tar::Builder;
 use xz::write::XzEncoder;
 
@@ -22,9 +25,7 @@ pub fn archive_compress(target_path: &PathBuf, blobs: &PathBuf) {
 
     // add a file to the archive
     if target_path.is_dir() {
-        archive
-            .append_dir_all(target_path.file_name().unwrap(), target_path)
-            .unwrap();
+        append_dir_all_excluding(&mut archive, target_path, target_path);
     } else {
         archive.append_path(target_path).unwrap();
     }
@@ -40,4 +41,47 @@ pub fn archive_compress(target_path: &PathBuf, blobs: &PathBuf) {
 
     // ensure data is flushed to disk
     file.sync_all().unwrap();
+}
+
+// I use this function to exclude the .openbrs workspace:
+// Signature explication:
+//  * builder is the Tar builder;
+//  * base is the root file system we're backing up;
+//  * path is the current directory we're visiting during recursion, it starts equal to base.
+fn append_dir_all_excluding(
+    builder: &mut Builder<XzEncoder<File>>,
+    base: &PathBuf,
+    path: &PathBuf,
+) {
+    // What we want to exclude
+    let exclude = ".openbrs";
+
+    // Is it a directory, or a file?
+    if path.is_dir() {
+        // iterate through entries and get the the entry's name
+        for entry in fs::read_dir(path).unwrap() {
+            let entry = entry.unwrap();
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_string_lossy();
+
+            // Is the target our workspace or does it contain it?
+            if exclude.contains(&file_name_str.as_ref()) {
+                continue;
+            }
+
+            // Get the full and relative paths
+            let entry_path = entry.path();
+            let rel_path = entry_path.strip_prefix(base).unwrap();
+
+            // is it a folder? Then recurse deeper; otherwise, simply archive it
+            if entry_path.is_dir() {
+                builder.append_dir(rel_path, &entry_path).unwrap();
+                append_dir_all_excluding(builder, base, &entry_path);
+            } else {
+                builder
+                    .append_path_with_name(&entry_path, rel_path)
+                    .unwrap();
+            }
+        }
+    }
 }

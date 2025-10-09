@@ -319,7 +319,6 @@ impl Tree {
 
         // Prepare the path
         let path = paths.trees.join(format!("{}.json", &self.id));
-        println!("Path :: {:?}", path);
         // Create the file
         // Write it off
         fs::write(path, json).unwrap();
