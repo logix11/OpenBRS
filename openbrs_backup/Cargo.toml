@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 openbrs_main_structs = { path = "../openbrs_main_structs" }
 openbrs_archv_cmprss = { path = "../openbrs_archv_cmprss/" }
+openbrs_stage = { path = "../openbrs_stage" }
 openbrs_crypto = { path = "../openbrs_crypto/" }
 openbrs_compare = { path = "../openbrs_compare" }
 sha3 = "0.10.8"

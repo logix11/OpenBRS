@@ -1,6 +1,7 @@
 use openbrs_archv_cmprss::archive_compress;
 use openbrs_compare::compare_trees;
 use openbrs_main_structs::{Commit, FilePath, Tree};
+use openbrs_stage::stage;
 use serde_json;
 use std::fs;
 
@@ -11,8 +12,8 @@ pub fn backup_full(paths: &FilePath) {
     // Write off the tree as a JSON
     tree.write_tree(&paths);
 
-    // Create the archive
-    archive_compress(&paths.target, &paths.archive);
+    // Stage the backup
+    archive_compress(&paths.target, &paths.blobs);
 
     // Make the commit which will point to the blob and tree.
     // If the work is not committed, it'll be some trash that may need to be cleaned later
@@ -28,7 +29,7 @@ pub fn backup_full(paths: &FilePath) {
     fs::write(&paths.head, commit.id).unwrap();
 }
 
-pub fn _backup_diff(paths: &FilePath, first_backup: bool) {
+pub fn backup_diff(paths: &FilePath, first_backup: bool) {
     match first_backup {
         true => {
             // Upon first backup, we run a full backup
@@ -64,6 +65,9 @@ pub fn _backup_diff(paths: &FilePath, first_backup: bool) {
 
             // Compare the two trees, and get what has changed
             let changes = compare_trees(&old_tree, &new_tree, paths);
+
+            // Stage changes
+            stage(changes, paths);
         }
     };
 }

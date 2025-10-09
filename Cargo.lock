@@ -391,6 +391,7 @@ dependencies = [
  "openbrs_compare",
  "openbrs_crypto",
  "openbrs_main_structs",
+ "openbrs_stage",
  "serde",
  "serde_json",
  "sha3",

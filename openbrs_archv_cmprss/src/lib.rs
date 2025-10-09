@@ -2,9 +2,16 @@ use std::{fs::File, path::PathBuf};
 use tar::Builder;
 use xz::write::XzEncoder;
 
-pub fn archive_compress(target_path: &PathBuf, blob_file: &PathBuf) {
+pub fn archive_compress(target_path: &PathBuf, blobs: &PathBuf) {
+    // Set the path to archive:
+    let archive_name = format!(
+        "{}.tar.xz",
+        target_path.file_name().unwrap().to_str().unwrap()
+    );
+    let archive = blobs.join(format!("{archive_name}"));
+
     // Create the file before turning it to an archive
-    let archive_file = File::create(blob_file).unwrap();
+    let archive_file = File::create(archive).unwrap();
 
     // create an XzEncoder that wraps the file (this implements Write)
     // Thus, we can compress on the fly

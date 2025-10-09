@@ -1,4 +1,4 @@
-use openbrs_backup::backup_full;
+use openbrs_backup::{backup_diff, backup_full};
 use openbrs_main_structs::FilePath;
 use std::{fs, path::Path};
 fn main() {
@@ -11,7 +11,7 @@ fn main() {
     }
 
     // Make an instance of paths
-    let paths = FilePath::new(target_path.to_path_buf());
+    let paths = FilePath::new(&target_path.to_path_buf());
 
     // Create paths if they dont exist
     let _first_backup = match fs::exists(&paths.main) {
@@ -29,5 +29,6 @@ fn main() {
 
     let _passwd = "test_passwd".as_bytes();
 
-    backup_full(&paths);
+    //backup_full(&paths);
+    backup_diff(&paths, false);
 }

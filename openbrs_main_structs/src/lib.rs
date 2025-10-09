@@ -17,18 +17,11 @@ pub struct FilePath {
     pub blobs: PathBuf,
     pub trees: PathBuf,
     pub commits: PathBuf,
-    pub archive: PathBuf,
-    pub encarch: Option<PathBuf>,
     pub head: PathBuf,
 }
 
 impl FilePath {
-    pub fn new(target_path: PathBuf) -> Self {
-        let archive_name = format!(
-            "{}.tar.xz",
-            target_path.file_name().unwrap().to_str().unwrap()
-        );
-
+    pub fn new(target_path: &PathBuf) -> Self {
         let (main, parent) = if metadata(&target_path).unwrap().is_dir() {
             (
                 target_path.to_path_buf().join(".openbrs"),
@@ -42,20 +35,19 @@ impl FilePath {
         };
 
         Self {
-            target: target_path,
+            target: target_path.clone(),
             parent: parent.clone(),
             main: main.clone(),
             blobs: main.join("objects/blobs"),
             trees: main.join("objects/trees"),
             commits: main.join("objects/commits"),
-            archive: main.join(format!("objects/blobs/{archive_name}")),
-            encarch: Some(main.join(format!("objects/blobs/{archive_name}.enc"))),
             head: main.join("HEAD"),
         }
     }
 
     pub fn create_dirs(&self) {
         fs::create_dir(&self.main).unwrap();
+        fs::create_dir(&self.main.join("objects")).unwrap();
         fs::create_dir(&self.blobs).unwrap();
         fs::create_dir(&self.trees).unwrap();
         fs::create_dir(&self.commits).unwrap();
@@ -158,10 +150,11 @@ pub enum EntryKind {
     File,
     Dir,
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EntryRef {
     pub name: String,
-    pub kind: EntryKind,
+    pub path: PathBuf,
     pub id: String,
 }
 
@@ -186,7 +179,7 @@ impl Tree {
             .unwrap()
             .flatten()
             .map(|entry| {
-                let path = FilePath::new(entry.path());
+                let path = FilePath::new(&entry.path());
                 let name = entry.file_name().to_string_lossy().to_string();
                 (path, name)
             })
@@ -203,18 +196,18 @@ impl Tree {
                 }
 
                 // create a Tree instance
-                let subtree = Tree::build_dir(&main_paths, &FilePath::new(path.target));
+                let subtree = Tree::build_dir(&main_paths, &FilePath::new(&path.target));
 
                 // Push its id into our main entries variable
                 entries.push(EntryRef {
                     name: name,
-                    kind: EntryKind::Dir,
+                    path: path.target.canonicalize().unwrap(),
                     id: subtree.id,
                 });
             } else if path.target.is_file() {
                 // Parse the item, hash their content, to build the tree.
                 let mut file_content = Vec::new();
-                let mut file = File::open(path.target).unwrap();
+                let mut file = File::open(path.target.to_path_buf()).unwrap();
                 file.read_to_end(&mut file_content).unwrap();
 
                 // Get its hash (ID)
@@ -223,7 +216,7 @@ impl Tree {
                 // push it to the tree
                 entries.push(EntryRef {
                     name: name,
-                    kind: EntryKind::File,
+                    path: path.target.canonicalize().unwrap(),
                     id: blob.id.unwrap(),
                 });
             }
@@ -264,7 +257,7 @@ impl Tree {
 
             // Read the file and create a Blob instance
             let mut file_content = Vec::new();
-            let mut file = File::open(&paths.target).unwrap();
+            let mut file = File::open(paths.target.to_path_buf()).unwrap();
             file.read_to_end(&mut file_content).unwrap();
 
             let blob_id = Blob::new(&file_content).id.unwrap();
@@ -275,7 +268,7 @@ impl Tree {
                 name: name.clone(),
                 entries: vec![EntryRef {
                     name,
-                    kind: EntryKind::File,
+                    path: paths.target.canonicalize().unwrap(),
                     id: blob_id,
                 }],
             }
@@ -294,7 +287,7 @@ impl Tree {
                 name: name.clone(),
                 entries: vec![EntryRef {
                     name,
-                    kind: EntryKind::File,
+                    path: paths.target.canonicalize().unwrap(),
                     id: blob_id,
                 }],
             }
@@ -328,7 +321,6 @@ impl Tree {
         let path = paths.trees.join(format!("{}.json", &self.id));
         println!("Path :: {:?}", path);
         // Create the file
-        fs::File::create(&path).unwrap();
         // Write it off
         fs::write(path, json).unwrap();
     }
@@ -344,7 +336,7 @@ pub enum ChangeType {
 pub struct Change {
     pub change_type: ChangeType,
     pub name: String,
-    pub kind: EntryKind,
+    pub path: PathBuf,
     pub old_id: Option<String>,
     pub new_id: Option<String>,
 }
